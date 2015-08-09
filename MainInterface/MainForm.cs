@@ -51,14 +51,15 @@ namespace MainInterface
 
 		private static Options LoadOptions()
 		{
-			Options result = Options.Default;
+			Options result = null;
 
 			try
 			{
 				result = (Options)CommonTypes.SettingsManager.LoadSettings("@barrycodes", "VodFarmer");
 			}
 			catch { }
-			return result;
+
+			return result ?? Options.Default;
 		}
 
 		private static void StoreOptions(Options options)
