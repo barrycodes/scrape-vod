@@ -42,7 +42,9 @@ namespace MainInterface
 
 			intentionalClose = false;
 			mode = NavigationMode.Idle;
-			credentials = new Queue<AccountInfo>();
+			tasks = new Queue<AccountInfo>();
+			allCredentials = new AccountInfo[] { };
+			currentLogin = null;
 
 			_options = LoadOptions();
 
@@ -62,11 +64,27 @@ namespace MainInterface
 			return result ?? Options.Default;
 		}
 
-		private static void StoreOptions(Options options)
+		private void StoreOptions(Options options)
 		{
 			try
 			{
 				CommonTypes.SettingsManager.StoreSettings("@barrycodes", "VodFarmer", options);
+			}
+			catch { }
+			try
+			{
+				CommonTypes.SettingsManager.AssureFolderExists("@barrycodes", "VodFarmer");
+				string settingsPath = CommonTypes.SettingsManager.GetSettingsPath("@barrycodes", "VodFarmer");
+				using (FileStream credentialsWriter = new FileStream(Path.Combine(settingsPath, "credentials.txt"), FileMode.Create, FileAccess.Write))
+				{
+					using (StreamWriter writer = new StreamWriter(credentialsWriter))
+					{
+						foreach (AccountInfo account in allCredentials)
+						{
+							writer.WriteLine(string.Format("{0}\t{1}\t{2}\t{3}", account.Username, account.Password, account.MinuteCount, account.RewardPoints));
+						}
+					}
+				}
 			}
 			catch { }
 		}
@@ -76,6 +94,7 @@ namespace MainInterface
 			Unknown,
 			Idle,
 			DoLoadSite,
+			DoNextLogout,
 			DoLogout,
 			DoLogin,
 			DoWork,
@@ -143,20 +162,33 @@ namespace MainInterface
 			public string Password { get; set; }
 			public int MinuteCount { get; set; }
 			public int RewardPoints { get; set; }
-			public AccountInfo()
+
+			public static AccountInfo Default
 			{
-				Username = Password = string.Empty;
-				MinuteCount = -1;
-				RewardPoints = -1;
+				get
+				{
+					return new AccountInfo
+					{
+						Username = string.Empty,
+						Password = string.Empty,
+						MinuteCount = -1,
+						RewardPoints = -1,
+					};
+				}
 			}
 		}
 
-		private Queue<AccountInfo> credentials;
+		private Queue<AccountInfo> tasks;
 
-		private void LoadCredentials()
+		private AccountInfo[] allCredentials;
+
+		private static AccountInfo[] LoadCredentials()
 		{
-			credentials.Clear();
-			using (FileStream readStream = new FileStream("credentials.txt", FileMode.Open, FileAccess.Read))
+			List<AccountInfo> results = new List<AccountInfo>();
+
+			CommonTypes.SettingsManager.AssureFolderExists("@barrycodes", "VodFarmer");
+
+			using (FileStream readStream = new FileStream(Path.Combine(CommonTypes.SettingsManager.GetSettingsPath("@barrycodes", "VodFarmer"), "credentials.txt"), FileMode.Open, FileAccess.Read))
 			{
 				using (StreamReader reader = new StreamReader(readStream))
 				{
@@ -180,14 +212,15 @@ namespace MainInterface
 										if (parts.Length >= 4)
 											info.RewardPoints = int.Parse(parts[3]);
 									}
+									results.Add(info);
 								}
 							}
-							credentials.Enqueue(new AccountInfo { Username = parts[0], Password = parts[1] });
 						}
 					} while (textLine != null);
 					reader.ReadLine();
 				}
 			}
+			return results.ToArray();
 		}
 
 		private void EditCredentials()
@@ -212,8 +245,9 @@ namespace MainInterface
 		{
 			try
 			{
-				LoadCredentials();
-				totalCount = credentials.Count;
+				allCredentials = LoadCredentials();
+				tasks = new Queue<AccountInfo>(allCredentials);
+				totalCount = tasks.Count;
 			}
 			finally
 			{
@@ -307,24 +341,28 @@ namespace MainInterface
 			return result;
 		}
 
+		private AccountInfo currentLogin;
+
 		private	void DoLogin()
 		{
 			bool success = false;
 
 			AccountInfo login = null;
-			if (credentials.Count > 0)
-				login = credentials.Dequeue();
+			if (tasks.Count > 0)
+				login = tasks.Dequeue();
 
 			if (login != null)
 			{
+				currentLogin = login;
+
 				try
 				{
 					var emailInput = GetEmailElement();
 					var passwordInput = GetPasswordElement();
 					var loginButton = GetLoginElement();
 
-					emailInput.InnerText = login.Username;
-					passwordInput.InnerText = login.Password;
+					emailInput.InnerText = currentLogin.Username;
+					passwordInput.InnerText = currentLogin.Password;
 
 					loginButton.InvokeMember("click");
 
@@ -332,7 +370,7 @@ namespace MainInterface
 				}
 				catch (Exception)
 				{
-					credentials.Enqueue(login);
+					tasks.Enqueue(login);
 				}
 				finally
 				{
@@ -367,7 +405,7 @@ namespace MainInterface
 			}
 			finally
 			{
-				mode = NavigationMode.DoLogout;
+				mode = NavigationMode.DoNextLogout;
 			}
 		}
 
@@ -383,6 +421,22 @@ namespace MainInterface
 			{
 				mode = NavigationMode.DoLogin;
 			}
+		}
+
+		private void UpdateMinuteCount()
+		{
+			try
+			{
+				string result = (string)InjectScript("getRemainingMinutes", "return $('#account_center > div.body > div.highlight > ul:first-child > li:first-child').text();", true);
+				currentLogin.MinuteCount = int.Parse(result.Split(' ')[0]);
+			}
+			catch { }
+		}
+
+		private void DoNextLogout()
+		{
+			UpdateMinuteCount();
+			DoLogout();
 		}
 
 		//private void DoEnterSite()
@@ -407,13 +461,17 @@ namespace MainInterface
 		//    }
 		//}
 
-		private void InjectScript(string scriptName, string scriptContents, bool runScript = false)
+		private object InjectScript(string scriptName, string scriptContents, bool runScript = false)
 		{
+			object result = null;
+
 			var scriptElement = webBrowser1.Document.CreateElement("script");
 			((IHTMLScriptElement)scriptElement.DomElement).text = "function " + scriptName + "() { " + scriptContents + "}";
 			webBrowser1.Document.GetElementsByTagName("head")[0].AppendChild(scriptElement);
 			if (runScript)
-				webBrowser1.Document.InvokeScript(scriptName);
+				result = webBrowser1.Document.InvokeScript(scriptName);
+
+			return result;
 		}
 
 		private void StopAutomation()
@@ -422,6 +480,7 @@ namespace MainInterface
 			mode = NavigationMode.Idle;
 			statusLabel.Text = "Ready";
 			optionsToolStripMenuItem.Enabled = true;
+			StoreOptions(_options);
 		}
 
 		private void NextStep()
@@ -446,13 +505,26 @@ namespace MainInterface
 						DoReload();
 						break;
 
-					case NavigationMode.DoLogout:
-						DoLogout();
+					case NavigationMode.DoNextLogout:
+
+						DoNextLogout();
+
 						statusLabel.Text =
 							string.Format(
 								"Running    |    Completed: {0}    |    Remaining: {1}",
-								totalCount - credentials.Count,
-								credentials.Count);
+								totalCount - tasks.Count,
+								tasks.Count);
+						break;
+
+					case NavigationMode.DoLogout:
+
+						DoLogout();
+		
+						statusLabel.Text =
+							string.Format(
+								"Running    |    Completed: {0}    |    Remaining: {1}",
+								totalCount - tasks.Count,
+								tasks.Count);
 						break;
 				}
 			}
