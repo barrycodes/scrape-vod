@@ -64,6 +64,29 @@ namespace MainInterface
 			return result ?? Options.Default;
 		}
 
+		private void StoreCredentials()
+		{
+			if (allCredentials != null && allCredentials.Length >= 1)
+
+				try
+				{
+					CommonTypes.SettingsManager.AssureFolderExists("@barrycodes", "VodFarmer");
+					string settingsPath = CommonTypes.SettingsManager.GetSettingsPath("@barrycodes", "VodFarmer");
+					using (FileStream credentialsWriter = new FileStream(Path.Combine(settingsPath, "credentials.txt"), FileMode.Create, FileAccess.Write))
+					{
+						using (StreamWriter writer = new StreamWriter(credentialsWriter))
+						{
+							foreach (AccountInfo account in allCredentials)
+							{
+								writer.WriteLine(string.Format("{0}\t{1}\t{2}\t{3}", account.Username, account.Password, account.MinuteCount, account.RewardPoints));
+							}
+						}
+					}
+				}
+				catch { }
+
+		}
+
 		private void StoreOptions(Options options)
 		{
 			try
@@ -71,22 +94,8 @@ namespace MainInterface
 				CommonTypes.SettingsManager.StoreSettings("@barrycodes", "VodFarmer", options);
 			}
 			catch { }
-			try
-			{
-				CommonTypes.SettingsManager.AssureFolderExists("@barrycodes", "VodFarmer");
-				string settingsPath = CommonTypes.SettingsManager.GetSettingsPath("@barrycodes", "VodFarmer");
-				using (FileStream credentialsWriter = new FileStream(Path.Combine(settingsPath, "credentials.txt"), FileMode.Create, FileAccess.Write))
-				{
-					using (StreamWriter writer = new StreamWriter(credentialsWriter))
-					{
-						foreach (AccountInfo account in allCredentials)
-						{
-							writer.WriteLine(string.Format("{0}\t{1}\t{2}\t{3}", account.Username, account.Password, account.MinuteCount, account.RewardPoints));
-						}
-					}
-				}
-			}
-			catch { }
+
+			StoreCredentials();
 		}
 
 		public enum NavigationMode
