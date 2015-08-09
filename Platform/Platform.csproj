@@ -66,6 +66,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -73,8 +74,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Win32.cs" />
+    <Compile Include="GetWindowCommand.cs" />
+    <Compile Include="PlatformApi.cs" />
+    <Compile Include="Point.cs" />
+    <Compile Include="Rect.cs" />
+    <Compile Include="SetWindowPosFlags.cs" />
+    <Compile Include="ShowWindowCommands.cs" />
+    <Compile Include="User32.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="WindowInfo.cs" />
+    <Compile Include="WindowPlacement.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
