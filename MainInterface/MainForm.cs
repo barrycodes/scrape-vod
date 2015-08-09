@@ -16,7 +16,25 @@ namespace MainInterface
     {
 		private bool intentionalClose;
 		private NavigationMode mode;
-		private string targetUrl;
+
+		[Serializable]
+		public class Options
+		{
+			public string TargetUrl { get; set; }
+			public TimeSpan ActionInterval { get; set; }
+
+			public static Options Default
+			{
+				get
+				{
+					return new Options { 
+						TargetUrl = "http://www.vod.com",
+						ActionInterval = TimeSpan.FromMilliseconds(2500) };
+				}
+			}
+		}
+
+		private Options _options;
 
         public MainForm()
         {
@@ -24,8 +42,32 @@ namespace MainInterface
 
 			intentionalClose = false;
 			mode = NavigationMode.Idle;
-			targetUrl = "http://danniondemand.com";
 			credentials = new Queue<AccountInfo>();
+
+			_options = LoadOptions();
+
+			timer1.Interval = (int)_options.ActionInterval.TotalMilliseconds;
+		}
+
+		private static Options LoadOptions()
+		{
+			Options result = Options.Default;
+
+			try
+			{
+				result = (Options)CommonTypes.SettingsManager.LoadSettings("@barrycodes", "VodFarmer");
+			}
+			catch { }
+			return result;
+		}
+
+		private static void StoreOptions(Options options)
+		{
+			try
+			{
+				CommonTypes.SettingsManager.StoreSettings("@barrycodes", "VodFarmer", options);
+			}
+			catch { }
 		}
 
 		public enum NavigationMode
@@ -89,7 +131,7 @@ namespace MainInterface
 
 		protected override void WndProc(ref Message m)
 		{
-			if (m.Msg == Platform.Win32.WM_SHOWME)
+			if (m.Msg == Platform.PlatformApi.WM_SHOWME)
 				ShowMe();
 			base.WndProc(ref m);
 		}
@@ -182,7 +224,7 @@ namespace MainInterface
 		{
 			try
 			{
-				webBrowser1.Url = new Uri(targetUrl);
+				webBrowser1.Url = new Uri(_options.TargetUrl);
 			}
 			finally
 			{
@@ -192,7 +234,7 @@ namespace MainInterface
 
 		private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
 		{
-			webBrowser1.Dispose();
+			StoreOptions(_options);
 		}
 
 		private HtmlElement GetEmailElement()
@@ -320,7 +362,7 @@ namespace MainInterface
 		{
 			try
 			{
-				webBrowser1.Navigate(targetUrl);
+				webBrowser1.Navigate(_options.TargetUrl);
 			}
 			finally
 			{
@@ -505,12 +547,11 @@ namespace MainInterface
 		{
 			using (OptionsForm form = new OptionsForm())
 			{
-				form.Delay = timer1.Interval;
-				form.TargetUrl = targetUrl;
+				form.Options = _options;
 				if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK)
 				{
-					timer1.Interval = form.Delay;
-					targetUrl = form.TargetUrl;
+					_options = form.Options;
+					StoreOptions(_options);
 				}
 			}
 		}

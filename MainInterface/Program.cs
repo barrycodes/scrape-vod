@@ -57,7 +57,7 @@ namespace MainInterface
 					}
 
 				else
-					Platform.Win32.PostMessage((IntPtr)Platform.Win32.HWND_BROADCAST, Platform.Win32.WM_SHOWME, IntPtr.Zero, IntPtr.Zero);
+					Platform.User32.PostMessage((IntPtr)Platform.PlatformApi.HWND_BROADCAST, Platform.PlatformApi.WM_SHOWME, IntPtr.Zero, IntPtr.Zero);
 			}
 			catch (Exception ex)
 			{

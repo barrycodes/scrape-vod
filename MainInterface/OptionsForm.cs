@@ -22,27 +22,20 @@ namespace MainInterface
 			Close();
 		}
 
-		public int Delay
+		public MainForm.Options Options
 		{
 			get
 			{
-				return (int)delayControl.Value;
+				return new MainForm.Options
+				{
+					ActionInterval = TimeSpan.FromMilliseconds((double)delayControl.Value),
+					TargetUrl = urlTextBox.Text
+				};
 			}
 			set
 			{
-				delayControl.Value = (decimal)value;
-			}
-		}
-
-		public string TargetUrl
-		{
-			get
-			{
-				return urlTextBox.Text;
-			}
-			set
-			{
-				urlTextBox.Text = value;
+				delayControl.Value = (decimal)value.ActionInterval.TotalMilliseconds;
+				urlTextBox.Text = value.TargetUrl;
 			}
 		}
 	}
